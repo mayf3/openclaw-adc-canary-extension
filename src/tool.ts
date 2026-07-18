@@ -12,6 +12,9 @@ import { Type, type Static } from '@sinclair/typebox';
 import type { OpenClawPluginToolContext } from './plugin-api.js';
 import type { CanaryConfig } from './config.js';
 import { AgentBindingError } from './errors.js';
+import { readSecretFromFile } from './secrets.js';
+import { requestDirectToken } from './auth-service-client.js';
+import { readAdcRequirements } from './adc-mock-client.js';
 
 // ─── Tool Schema ──────────────────────────────────────────────────────────
 
@@ -95,8 +98,38 @@ export function createAdcWorkflowReadTool(
       }
 
       // ── 3. Full mode (Phase 2+) ───────────────────────────────────────
-      // TODO: Implement in Phase 2
-      throw new Error('Full mode not yet implemented (Phase 2)');
+      // Read machine client secret from the canonical secret file
+      const { secret } = readSecretFromFile(config.secretFilePath);
+
+      // Request Agent Direct Token from auth-service
+      const tokenResult = await requestDirectToken({
+        authServiceOrigin: config.authServiceOrigin,
+        clientId: config.machineClientId,
+        clientSecret: secret,
+        resource: 'svc-workflow',
+        scope: 'workflow.read',
+      });
+
+      // Call ADC Mock with the Direct Token (X-Subject-Token header)
+      const adcResult = await readAdcRequirements({
+        adcMockOrigin: config.adcMockOrigin,
+        accessToken: tokenResult.access_token,
+      });
+
+      // Return ADC data to LLM (NOT the token or secret!)
+      const responseText = JSON.stringify({
+        status: 'ok',
+        data: adcResult.data,
+      });
+
+      return {
+        content: [{ type: 'text' as const, text: responseText }],
+        details: {
+          agentId: actualAgentId,
+          mode: 'full',
+          adcStatus: adcResult.status,
+        },
+      };
     },
   });
 }
