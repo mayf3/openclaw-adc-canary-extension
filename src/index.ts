@@ -30,9 +30,8 @@ export default function register(api: OpenClawPluginApi): void {
     throw err;
   }
 
-  // Phase 0: Register probe tool (no secret, no network)
-  // Phase 2: Change probeMode to false when full implementation is ready
-  const probeMode = true;
+  // Phase 2: Full mode — read secret, obtain Direct Token, call ADC Mock
+  const probeMode = false;
 
   api.registerTool(
     createAdcWorkflowReadTool(PROBE_CONFIG, probeMode),
