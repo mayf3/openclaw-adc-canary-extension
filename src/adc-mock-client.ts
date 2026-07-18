@@ -5,13 +5,16 @@
  * The Direct Token is sent via X-Subject-Token header.
  *
  * Security:
- *   - Only connects to the configured ADC Mock origin
+ *   - Only connects to the configured ADC Mock origin (H-02)
  *   - Fixed path: GET /api/requirements/mine
  *   - No redirects
  *   - Token in header only (not in body, query, or cookie)
  *   - Token not logged or returned to caller
  *   - Fail closed on any non-2xx response
  */
+
+import { validateLoopbackOrigin } from './origin-validator.js';
+import { checkProxyAtRequestTime } from './proxy-guard.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -53,23 +56,12 @@ export async function readAdcRequirements(
     timeoutMs = DEFAULT_TIMEOUT_MS,
   } = params;
 
-  // ── 1. Validate origin ──────────────────────────────────────────────
-  let baseUrl: URL;
-  try {
-    baseUrl = new URL(adcMockOrigin);
-  } catch {
-    throw new Error('Invalid ADC Mock origin');
-  }
+  // ── 1. Validate origin via shared validator (H-02) ─────────────────
+  const parsed = validateLoopbackOrigin(adcMockOrigin);
+  const url = `${parsed.origin}${ADC_READ_PATH}`;
 
-  // Only loopback HTTP allowed for V0
-  if (baseUrl.protocol !== 'http:' && baseUrl.protocol !== 'https:') {
-    throw new Error('Invalid ADC Mock origin protocol');
-  }
-  if (baseUrl.hostname !== '127.0.0.1' && baseUrl.hostname !== 'localhost') {
-    throw new Error('ADC Mock origin must be loopback (127.0.0.1 or localhost)');
-  }
-
-  const url = `${adcMockOrigin}${ADC_READ_PATH}`;
+  // ── 1b. Check proxy not configured (M-06) ─────────────────────────
+  checkProxyAtRequestTime();
 
   // ── 2. Make HTTP request ────────────────────────────────────────────
   const controller = new AbortController();
@@ -82,7 +74,6 @@ export async function readAdcRequirements(
         'X-Subject-Token': accessToken,
       },
       signal: controller.signal,
-      // Explicitly disable redirect following
       redirect: 'manual',
     });
 

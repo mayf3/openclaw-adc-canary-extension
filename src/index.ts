@@ -12,6 +12,7 @@
 import type { OpenClawPluginApi } from './plugin-api.js';
 import { PROBE_CONFIG } from './config.js';
 import { createAdcWorkflowReadTool } from './tool.js';
+import { assertNoProxyConfigured } from './proxy-guard.js';
 
 /**
  * Plugin registration — called by the OpenClaw Gateway at startup.
@@ -20,6 +21,14 @@ import { createAdcWorkflowReadTool } from './tool.js';
  */
 export default function register(api: OpenClawPluginApi): void {
   api.logger.info('[openclaw-adc-canary] Registering plugin...');
+
+  // Check proxy env vars at startup (M-06)
+  try {
+    assertNoProxyConfigured();
+  } catch (err: any) {
+    api.logger.error(`[openclaw-adc-canary] Proxy guard: ${err.message}`);
+    throw err;
+  }
 
   // Phase 0: Register probe tool (no secret, no network)
   // Phase 2: Change probeMode to false when full implementation is ready

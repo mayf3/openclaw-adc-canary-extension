@@ -22,6 +22,9 @@
  *   - Token not logged or persisted
  */
 
+import { validateLoopbackOrigin } from './origin-validator.js';
+import { checkProxyAtRequestTime } from './proxy-guard.js';
+
 // ─── Types ────────────────────────────────────────────────────────────────
 
 export interface TokenResponse {
@@ -71,23 +74,12 @@ export async function requestDirectToken(
     timeoutMs = DEFAULT_TIMEOUT_MS,
   } = params;
 
-  // ── 1. Validate origin ──────────────────────────────────────────────
-  let baseUrl: URL;
-  try {
-    baseUrl = new URL(authServiceOrigin);
-  } catch {
-    throw new Error(`Invalid auth-service origin`);
-  }
+  // ── 1. Validate origin via shared validator (H-02) ─────────────────
+  const parsed = validateLoopbackOrigin(authServiceOrigin);
+  const tokenUrl = `${parsed.origin}/oauth/token`;
 
-  // Only loopback HTTP allowed for V0 (Phase 4 decision)
-  if (baseUrl.protocol !== 'http:' && baseUrl.protocol !== 'https:') {
-    throw new Error(`Invalid auth-service origin protocol`);
-  }
-  if (baseUrl.hostname !== '127.0.0.1' && baseUrl.hostname !== 'localhost') {
-    throw new Error(`Auth-service origin must be loopback (127.0.0.1 or localhost)`);
-  }
-
-  const tokenUrl = `${authServiceOrigin}/oauth/token`;
+  // ── 1b. Check proxy not configured (M-06) ─────────────────────────
+  checkProxyAtRequestTime();
 
   // ── 2. Build Basic auth header ──────────────────────────────────────
   const credentials = `${clientId}:${clientSecret}`;
@@ -113,7 +105,6 @@ export async function requestDirectToken(
       },
       body: body.toString(),
       signal: controller.signal,
-      // Explicitly disable redirect following
       redirect: 'manual',
     });
 
@@ -126,7 +117,6 @@ export async function requestDirectToken(
         // Ignore body parse errors
       }
 
-      // Try to extract OAuth error from body
       let oauthError = 'unknown_error';
       if (errorBody) {
         try {
@@ -135,7 +125,6 @@ export async function requestDirectToken(
             oauthError = parsed.error;
           }
         } catch {
-          // Not JSON — use status text
           oauthError = response.statusText || 'unknown_error';
         }
       }
@@ -166,7 +155,7 @@ export async function requestDirectToken(
       throw new Error('Token response: missing or invalid expires_in');
     }
 
-    // ── 8. Reject if refresh_token is present (should not happen) ─────
+    // ── 8. Reject if refresh_token is present ─────────────────────────
     if (json.refresh_token !== undefined) {
       throw new Error('Token response: unexpected refresh_token (fail closed)');
     }
@@ -181,7 +170,6 @@ export async function requestDirectToken(
     if (err.name === 'AbortError') {
       throw new Error(`Token request timed out after ${timeoutMs}ms`);
     }
-    // Re-throw with masked details (no secret exposure)
     throw new Error(`Token request failed: ${err.message}`);
   } finally {
     clearTimeout(timeoutId);
