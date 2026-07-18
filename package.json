@@ -8,8 +8,8 @@
     "build": "tsc",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.ts",
-    "test:probe": "node --test tests/probe.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "test:probe": "tsx --test tests/probe.test.ts"
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.0"
@@ -21,7 +21,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./index.js"
+      "./dist/index.js"
     ]
   }
 }
