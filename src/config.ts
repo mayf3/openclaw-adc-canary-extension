@@ -29,7 +29,7 @@ export interface CanaryConfig {
  */
 export const PROBE_CONFIG: CanaryConfig = {
   expectedAgentId: 'canary-agent',
-  machineClientId: 'cm_placeholder',
+  machineClientId: 'mc_IVzMVY3S1qLx3bmolaQh9-Pd',
   authServiceOrigin: 'http://127.0.0.1:4001',
   adcMockOrigin: 'http://127.0.0.1:9099',
   secretFilePath: '/private/etc/oc-canary/secrets/adc-machine-client-secret',

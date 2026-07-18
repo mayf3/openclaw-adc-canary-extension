@@ -45,10 +45,12 @@ fail() {
 check() {
     local test_name="$1"
     local result="$2"
-    if [ "$result" = "true" ]; then
+    local expected="$3"
+    expected="${expected:-true}"
+    if [ "$result" = "$expected" ]; then
         pass "$test_name"
     else
-        fail "$test_name" "expected true, got ${result}"
+        fail "$test_name" "expected ${expected}, got ${result}"
     fi
 }
 
@@ -68,7 +70,7 @@ LEGACY_CAN_READ=false
 if sudo -u "${LEGACY_USER}" test -r "${SECRET_FILE}" 2>/dev/null; then
     LEGACY_CAN_READ=true
 fi
-check "LEGACY_USER_CAN_READ_CANARY_SECRET" "${LEGACY_CAN_READ}"  # Expected: false
+check "LEGACY_USER_CAN_READ_CANARY_SECRET" "${LEGACY_CAN_READ}" false  # Expected: false
 echo "LEGACY_USER_CAN_READ_CANARY_SECRET=${LEGACY_CAN_READ}"
 
 # ── 2. Legacy user cannot modify test secret ───────────────────────────────
@@ -77,7 +79,7 @@ LEGACY_CAN_MODIFY=false
 if sudo -u "${LEGACY_USER}" sh -c "echo 'test' > '${SECRET_FILE}'" 2>/dev/null; then
     LEGACY_CAN_MODIFY=true
 fi
-check "LEGACY_USER_CAN_MODIFY_CANARY_SECRET" "${LEGACY_CAN_MODIFY}"  # Expected: false
+check "LEGACY_USER_CAN_MODIFY_CANARY_SECRET" "${LEGACY_CAN_MODIFY}" false  # Expected: false
 echo "LEGACY_USER_CAN_MODIFY_CANARY_SECRET=${LEGACY_CAN_MODIFY}"
 
 # ── 3. Canary runtime user can read secret ─────────────────────────────────
@@ -86,7 +88,7 @@ CANARY_CAN_READ=false
 if sudo -u "${CANARY_USER}" test -r "${SECRET_FILE}" 2>/dev/null; then
     CANARY_CAN_READ=true
 fi
-check "CANARY_RUNTIME_CAN_READ_SECRET" "${CANARY_CAN_READ}"  # Expected: true
+check "CANARY_RUNTIME_CAN_READ_SECRET" "${CANARY_CAN_READ}" true  # Expected: true
 echo "CANARY_RUNTIME_CAN_READ_SECRET=${CANARY_CAN_READ}"
 
 # ── 4. Canary runtime user cannot modify secret ────────────────────────────
@@ -95,7 +97,7 @@ CANARY_CAN_MODIFY=false
 if sudo -u "${CANARY_USER}" sh -c "echo 'test' > '${SECRET_FILE}'" 2>/dev/null; then
     CANARY_CAN_MODIFY=true
 fi
-check "CANARY_RUNTIME_CAN_MODIFY_SECRET" "${CANARY_CAN_MODIFY}"  # Expected: false
+check "CANARY_RUNTIME_CAN_MODIFY_SECRET" "${CANARY_CAN_MODIFY}" false  # Expected: false
 echo "CANARY_RUNTIME_CAN_MODIFY_SECRET=${CANARY_CAN_MODIFY}"
 
 # ── 5. Canary user is not admin ────────────────────────────────────────────
@@ -104,7 +106,7 @@ CANARY_IS_ADMIN=false
 if groups "${CANARY_USER}" 2>/dev/null | grep -q '\badmin\b'; then
     CANARY_IS_ADMIN=true
 fi
-check "CANARY_USER_IS_ADMIN" "${CANARY_IS_ADMIN}"  # Expected: false
+check "CANARY_USER_IS_ADMIN" "${CANARY_IS_ADMIN}" false  # Expected: false
 echo "CANARY_USER_IS_ADMIN=${CANARY_IS_ADMIN}"
 
 # ── 6. Canary user has no sudo ─────────────────────────────────────────────
@@ -113,7 +115,7 @@ CANARY_HAS_SUDO=false
 if sudo -l -U "${CANARY_USER}" 2>/dev/null | grep -q "(ALL)"; then
     CANARY_HAS_SUDO=true
 fi
-check "CANARY_USER_HAS_SUDO" "${CANARY_HAS_SUDO}"  # Expected: false
+check "CANARY_USER_HAS_SUDO" "${CANARY_HAS_SUDO}" false  # Expected: false
 echo "CANARY_USER_HAS_SUDO=${CANARY_HAS_SUDO}"
 
 # ── 7. Canary workspace does not contain secret ────────────────────────────
@@ -124,7 +126,7 @@ WORKSPACE_HAS_SECRET=false
 if grep -rl "canary-test" "${CANARY_WORKSPACE}" 2>/dev/null; then
     WORKSPACE_HAS_SECRET=true
 fi
-check "CANARY_WORKSPACE_HAS_SECRET" "${WORKSPACE_HAS_SECRET}"  # Expected: false
+check "CANARY_WORKSPACE_HAS_SECRET" "${WORKSPACE_HAS_SECRET}" false  # Expected: false
 echo "CANARY_WORKSPACE_HAS_SECRET=${WORKSPACE_HAS_SECRET}"
 rm -rf "${CANARY_WORKSPACE}"
 
@@ -134,7 +136,7 @@ LEGACY_CAN_MODIFY_EXT=false
 if sudo -u "${LEGACY_USER}" touch "${EXT_LOAD_DIR}/unauthored.txt" 2>/dev/null; then
     LEGACY_CAN_MODIFY_EXT=true
 fi
-check "LEGACY_USER_CAN_MODIFY_LOADED_EXTENSION" "${LEGACY_CAN_MODIFY_EXT}"  # Expected: false
+check "LEGACY_USER_CAN_MODIFY_LOADED_EXTENSION" "${LEGACY_CAN_MODIFY_EXT}" false  # Expected: false
 echo "LEGACY_USER_CAN_MODIFY_LOADED_EXTENSION=${LEGACY_CAN_MODIFY_EXT}"
 
 # ── 9. Canary runtime cannot modify loaded extension ───────────────────────
@@ -143,7 +145,7 @@ CANARY_CAN_MODIFY_EXT=false
 if sudo -u "${CANARY_USER}" touch "${EXT_LOAD_DIR}/unauthored.txt" 2>/dev/null; then
     CANARY_CAN_MODIFY_EXT=true
 fi
-check "CANARY_RUNTIME_CAN_MODIFY_LOADED_EXTENSION" "${CANARY_CAN_MODIFY_EXT}"  # Expected: false
+check "CANARY_RUNTIME_CAN_MODIFY_LOADED_EXTENSION" "${CANARY_CAN_MODIFY_EXT}" false  # Expected: false
 echo "CANARY_RUNTIME_CAN_MODIFY_LOADED_EXTENSION=${CANARY_CAN_MODIFY_EXT}"
 
 # ── 10. Extension not loaded from development worktree ─────────────────────
@@ -156,7 +158,7 @@ if [ -d "${EXT_LOAD_DIR}" ]; then
         EXT_LOADED_FROM_DEV=true
     fi
 fi
-check "EXTENSION_LOADED_FROM_DEVELOPMENT_WORKTREE" "${EXT_LOADED_FROM_DEV}"  # Expected: false
+check "EXTENSION_LOADED_FROM_DEVELOPMENT_WORKTREE" "${EXT_LOADED_FROM_DEV}" false  # Expected: false
 echo "EXTENSION_LOADED_FROM_DEVELOPMENT_WORKTREE=${EXT_LOADED_FROM_DEV}"
 
 # ── 11. Extension artifact digest verified ─────────────────────────────────
@@ -165,7 +167,7 @@ DIGEST_VERIFIED=false
 if [ -f "${EXT_LOAD_DIR}/SHA256SUMS" ]; then
     DIGEST_VERIFIED=true
 fi
-check "EXTENSION_ARTIFACT_DIGEST_EXISTS" "${DIGEST_VERIFIED}"  # Expected: true
+check "EXTENSION_ARTIFACT_DIGEST_EXISTS" "${DIGEST_VERIFIED}" true  # Expected: true
 echo "EXTENSION_ARTIFACT_DIGEST_EXISTS=${DIGEST_VERIFIED}"
 
 # ── 12. Legacy user cannot modify canary config ────────────────────────────
@@ -174,7 +176,7 @@ LEGACY_CAN_MODIFY_CONFIG=false
 if sudo -u "${LEGACY_USER}" sh -c "echo 'modified' > '${CONFIG_FILE}'" 2>/dev/null; then
     LEGACY_CAN_MODIFY_CONFIG=true
 fi
-check "LEGACY_USER_CAN_MODIFY_SECURITY_CONFIG" "${LEGACY_CAN_MODIFY_CONFIG}"  # Expected: false
+check "LEGACY_USER_CAN_MODIFY_SECURITY_CONFIG" "${LEGACY_CAN_MODIFY_CONFIG}" false  # Expected: false
 echo "LEGACY_USER_CAN_MODIFY_SECURITY_CONFIG=${LEGACY_CAN_MODIFY_CONFIG}"
 
 # ── 13. Canary runtime cannot modify canary config ────────────────────────
@@ -183,7 +185,7 @@ CANARY_CAN_MODIFY_CONFIG=false
 if sudo -u "${CANARY_USER}" sh -c "echo 'modified' > '${CONFIG_FILE}'" 2>/dev/null; then
     CANARY_CAN_MODIFY_CONFIG=true
 fi
-check "CANARY_RUNTIME_CAN_MODIFY_SECURITY_CONFIG" "${CANARY_CAN_MODIFY_CONFIG}"  # Expected: false
+check "CANARY_RUNTIME_CAN_MODIFY_SECURITY_CONFIG" "${CANARY_CAN_MODIFY_CONFIG}" false  # Expected: false
 echo "CANARY_RUNTIME_CAN_MODIFY_SECURITY_CONFIG=${CANARY_CAN_MODIFY_CONFIG}"
 
 # ── 14. Secret file permissions are correct ───────────────────────────────
