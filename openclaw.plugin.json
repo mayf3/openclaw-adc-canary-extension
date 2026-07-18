@@ -1,0 +1,10 @@
+{
+  "id": "openclaw-adc-canary",
+  "name": "ADC Canary Extension (V0)",
+  "description": "Single Agent Isolated ADC Trusted Tool Canary — V0 read-only workflow probe and trusted tool.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

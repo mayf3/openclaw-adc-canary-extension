@@ -1,0 +1,26 @@
+{
+  "name": "openclaw-adc-canary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenClaw ADC Canary Extension — Single Agent Isolated ADC Trusted Tool",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.ts",
+    "test:probe": "node --test tests/probe.test.ts"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}
