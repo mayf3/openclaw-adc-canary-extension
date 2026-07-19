@@ -1,0 +1,73 @@
+{
+  "id": "openclaw-auth-broker",
+  "name": "OpenClaw Business Auth Broker V1",
+  "description": "Generic business service authentication broker with per-agent canary gate and global enable/disable switch. Supports client-credentials OAuth2 token acquisition via SecretRef, audience-scoped token cache, and pluggable capability adapters.",
+  "configSchema": {
+    "type": "object",
+    "required": ["globalEnabled", "enabledAgentIds", "agentClients", "targets", "capabilities"],
+    "properties": {
+      "globalEnabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Global kill switch. When false, no tools are registered and all agents behave as if the plugin is not installed."
+      },
+      "enabledAgentIds": {
+        "type": "array",
+        "items": { "type": "string" },
+        "minItems": 0,
+        "description": "Allowlist of agent IDs that may invoke broker tools. Agents not in this list receive a fail-closed error at execution time."
+      },
+      "agentClients": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "required": ["clientId", "credentialRef"],
+          "properties": {
+            "clientId": { "type": "string" },
+            "credentialRef": {
+              "type": "object",
+              "required": ["source", "provider", "id"],
+              "properties": {
+                "source": { "type": "string", "enum": ["env", "file", "exec"] },
+                "provider": { "type": "string" },
+                "id": { "type": "string" }
+              }
+            }
+          }
+        },
+        "description": "Per-agent client credential mapping. Each agent ID maps to an OAuth2 client ID and a reference to its client secret."
+      },
+      "targets": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["targetId", "audience", "allowedOrigin"],
+          "properties": {
+            "targetId": { "type": "string" },
+            "audience": { "type": "string" },
+            "allowedOrigin": { "type": "string" }
+          }
+        },
+        "description": "Registered target services. Each target specifies an audience for token issuance and an allowed origin for fetch validation."
+      },
+      "capabilities": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["capabilityId", "targetId", "requiredScopes", "method", "path"],
+          "properties": {
+            "capabilityId": { "type": "string" },
+            "targetId": { "type": "string" },
+            "requiredScopes": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "method": { "type": "string", "enum": ["GET", "POST", "PUT", "DELETE"] },
+            "path": { "type": "string" }
+          }
+        },
+        "description": "Registered capabilities that adapters implement. Each capability links a business function to a target, required scopes, and HTTP endpoint."
+      }
+    }
+  }
+}

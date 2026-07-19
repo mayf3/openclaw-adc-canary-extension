@@ -1,0 +1,27 @@
+{
+  "name": "openclaw-auth-broker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenClaw Business Auth Broker V1 — Generic business service authentication with per-agent canary gate",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/unit/*.test.ts",
+    "test:integration": "tsx --test tests/integration/*.test.ts"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.23.1",
+    "typescript": "^5.7.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./dist/index.js"
+    ]
+  }
+}
