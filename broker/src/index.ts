@@ -25,6 +25,7 @@ import { Registries, ConfigValidationError } from './registries.js';
 import { BrokerCore, AgentNotAllowedError } from './broker-core.js';
 import { createWorkflowTasksTool } from './adapters/workflow-tasks.js';
 import { createTestReadTool } from './adapters/test-read.js';
+import { createOkrReadTool } from './adapters/okr-read.js';
 
 // ─── Adapter Registry ─────────────────────────────────────────────────────
 
@@ -44,6 +45,7 @@ const ADAPTERS: Record<
 > = {
   'workflow_my_tasks': createWorkflowTasksTool,
   'test_read': createTestReadTool,
+  'okr_read': createOkrReadTool,
 };
 
 // ─── Plugin Registration ──────────────────────────────────────────────────
