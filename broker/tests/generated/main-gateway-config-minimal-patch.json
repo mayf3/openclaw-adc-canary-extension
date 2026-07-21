@@ -1,0 +1,74 @@
+{
+  "comment": "Minimal RFC 6902 JSON Patch for main gateway openclaw-auth-broker install.
+  Purely additive — no existing keys are modified or deleted.
+  All existing config (agents, bindings, channels, session, etc.) is preserved as-is.
+  Apply with: jq -f main-gateway-config-minimal-patch.json ~/.openclaw/openclaw.json > tmp && mv tmp ~/.openclaw/openclaw.json",
+  "patches": [
+    {
+      "op": "add",
+      "path": "/plugins/installs/openclaw-auth-broker",
+      "value": {
+        "source": "path",
+        "spec": "extensions/openclaw-auth-broker",
+        "version": "0.1.0",
+        "resolvedName": "openclaw-auth-broker",
+        "resolvedVersion": "0.1.0",
+        "resolvedSpec": "extensions/openclaw-auth-broker"
+      }
+    },
+    {
+      "op": "add",
+      "path": "/plugins/entries/openclaw-auth-broker",
+      "value": {
+        "enabled": true,
+        "config": {
+          "globalEnabled": false,
+          "enabledAgentIds": ["auth-canary-agent"],
+          "agentClients": {
+            "auth-canary-agent": {
+              "clientId": "openclaw-auth-canary-agent",
+              "credentialRef": {
+                "source": "file",
+                "provider": "fs",
+                "id": "/Users/yanfenma/.openclaw/credentials/openclaw-auth-canary-agent-secret"
+              }
+            }
+          },
+          "targets": [
+            {
+              "targetId": "svc-workflow",
+              "audience": "svc-workflow",
+              "allowedOrigin": "https://svc-workflow.internal.example.com"
+            }
+          ],
+          "capabilities": [
+            {
+              "capabilityId": "workflow_my_tasks",
+              "targetId": "svc-workflow",
+              "requiredScopes": ["workflow.read"],
+              "method": "GET",
+              "path": "/api/v1/my-tasks"
+            }
+          ],
+          "authServiceOrigin": "http://auth-service.internal:4982"
+        }
+      }
+    },
+    {
+      "op": "add",
+      "path": "/plugins/allow/-",
+      "value": "openclaw-auth-broker"
+    }
+  ],
+  "invariant_assertions": {
+    "main_config_keys_preserved": "All 16 top-level keys unchanged",
+    "existing_agent_count_unchanged": "agents.list length = 78 (unchanged)",
+    "existing_bindings_unchanged": "bindings length = 78, all { agentId, match }",
+    "existing_channel_config_unchanged": "channels.feishu not touched",
+    "existing_workspaces_unchanged": "agents.*.workspace not touched",
+    "existing_sessions_unchanged": "session not touched",
+    "existing_cron_unchanged": "cron not touched",
+    "existing_skills_unchanged": "skills.entries not touched",
+    "existing_models_unchanged": "models.providers not touched"
+  }
+}
