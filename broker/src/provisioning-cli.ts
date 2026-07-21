@@ -24,6 +24,8 @@
  */
 
 import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { resolveSecret, isSecretRef } from './secret-resolver.js';
 import {
   PrincipalRegistry,
@@ -174,13 +176,17 @@ async function runReconcile(authOrigin: string, cliArgs: CliArgs): Promise<void>
 
   // 4. Verify credential refs
   console.error('\n─── Verifying credential_ref resolvability ───');
+  const secretDir = process.env.OPENCLAW_CREDENTIALS_DIR || path.join(os.homedir(), '.openclaw', 'credentials');
   let secretRefValidCount = 0;
   for (const result of firstPass.results) {
     const agent = mapping.agents.find(a => a.canonical_agent_id === result.canonicalAgentId);
     if (!agent) continue;
     try {
       if (isSecretRef(agent.credential_ref)) {
-        await resolveSecret(agent.credential_ref as any);
+        // Logical ref: source=file, id=agent-<canonical>-secret
+        // Resolve against the known credentials directory
+        const fullPath = path.join(secretDir, agent.credential_ref.id);
+        fs.accessSync(fullPath, fs.constants.R_OK);
       } else {
         // Plain string: check file exists
         fs.accessSync(agent.credential_ref.id, fs.constants.R_OK);
