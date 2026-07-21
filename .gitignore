@@ -3,3 +3,6 @@ dist/
 .env
 *.log
 .DS_Store
+
+# Real authoritative agent mapping (contains absolute paths and local secrets)
+authoritative-agent-mapping.json

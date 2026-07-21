@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "generated_at": "<timestamp>",
+  "agents": [
+    {
+      "canonical_agent_id": "<agent-id>",
+      "display_name": "<display-name>",
+      "auth_principal_id": "<uuid>",
+      "auth_agent_id": "<auth-agent-id>",
+      "owner_user_id": "<uuid>",
+      "openclaw_client_id": "mc_xxx",
+      "credential_ref": {
+        "source": "file",
+        "provider": "local",
+        "id": "<path-to-credential-file>"
+      }
+    }
+  ],
+  "validation": {
+    "total": 78,
+    "complete": 78,
+    "incomplete": []
+  }
+}
