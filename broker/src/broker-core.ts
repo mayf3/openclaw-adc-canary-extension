@@ -76,6 +76,117 @@ export class AuthServiceError extends BrokerError {
   }
 }
 
+/**
+ * Parameter binding error — invalid/missing/extra path params or malformed query.
+ * This is a client-side input error (400 semantics), NOT an auth failure.
+ */
+export class RequestBindingError extends BrokerError {
+  constructor(detail: string) {
+    super(`Request binding error: ${detail}`, 400);
+    this.name = 'RequestBindingError';
+  }
+}
+
+// ─── Request Binding (generic, no business fields) ────────────────────────
+
+/**
+ * Optional, generic request binding passed as the business input to
+ * `authorizedFetch`. The BrokerCore knows NOTHING about specific business
+ * field names (no UUID, no limit, no cursor). It only performs generic,
+ * safe HTTP binding:
+ *  - pathParams keys MUST exactly match the `{placeholder}` tokens in the
+ *    configured capability path (no missing, no extra, no format assumptions).
+ *  - values are encodeURIComponent'd before substitution.
+ *  - query entries with undefined/empty values are omitted; the rest are
+ *    serialized with URLSearchParams.
+ *
+ * Adapters are responsible for ALL business validation (UUID format, cursor
+ * pairing, value ranges). Core stays a generic transport.
+ */
+export interface RequestBinding {
+  /** Map of path placeholder name → validated value. Keys must match path tokens. */
+  pathParams?: Record<string, string>;
+  /** Map of query param name → value. undefined/empty entries are omitted. */
+  query?: Record<string, string | number | boolean | undefined>;
+}
+
+/** Extract `{name}` placeholders from a path template. Returns them in order. */
+function extractPathPlaceholders(path: string): string[] {
+  const placeholders: string[] = [];
+  const re = /\{([^}]+)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(path)) !== null) {
+    placeholders.push(m[1]);
+  }
+  return placeholders;
+}
+
+/**
+ * Interpolate path placeholders from pathParams. Enforces exact match.
+ * @returns the concrete path string (no placeholders remain).
+ * @throws RequestBindingError on missing/extra placeholder or leftover `{...}`.
+ */
+function buildPath(pathTemplate: string, pathParams?: Record<string, string>): string {
+  const placeholders = extractPathPlaceholders(pathTemplate);
+  const providedKeys = pathParams ? Object.keys(pathParams) : [];
+  const providedSet = new Set(providedKeys);
+  const expectedSet = new Set(placeholders);
+
+  if (placeholders.length === 0) {
+    if (providedKeys.length > 0) {
+      throw new RequestBindingError(
+        `path "${pathTemplate}" declares no placeholders but pathParams were provided: [${providedKeys.join(', ')}]`,
+      );
+    }
+    return pathTemplate;
+  }
+
+  // Missing placeholders
+  for (const ph of placeholders) {
+    if (!providedSet.has(ph)) {
+      throw new RequestBindingError(`missing path parameter "${ph}" for path "${pathTemplate}"`);
+    }
+  }
+  // Extra path params
+  for (const key of providedKeys) {
+    if (!expectedSet.has(key)) {
+      throw new RequestBindingError(
+        `undeclared path parameter "${key}" (path "${pathTemplate}" placeholders: [${placeholders.join(', ')}])`,
+      );
+    }
+  }
+
+  let result = pathTemplate;
+  for (const ph of placeholders) {
+    // encodeURIComponent the value — prevents path injection regardless of format.
+    const raw = pathParams![ph];
+    if (raw === undefined || raw === null || raw === '') {
+      throw new RequestBindingError(`empty value for path parameter "${ph}"`);
+    }
+    result = result.replace(`{${ph}}`, encodeURIComponent(String(raw)));
+  }
+
+  // Safety: no leftover braces.
+  if (/\{|\}/.test(result)) {
+    throw new RequestBindingError(`unresolved placeholders in path "${result}"`);
+  }
+  return result;
+}
+
+/**
+ * Serialize query entries, omitting undefined/null/'' values.
+ * @returns the query string WITHOUT leading '?', or '' if empty.
+ */
+function buildQuery(query?: Record<string, string | number | boolean | undefined>): string {
+  if (!query) return '';
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === '') continue;
+    params.append(key, String(value));
+  }
+  return params.toString();
+}
+
 // ─── Broker Core ──────────────────────────────────────────────────────────
 
 export class BrokerCore {
@@ -93,18 +204,24 @@ export class BrokerCore {
    *
    * @param ctx        The plugin tool context (provides trusted agentId).
    * @param capabilityId  The registered capability ID to invoke.
-   * @param businessInput  Business parameters validated by the adapter's schema.
+   * @param binding    Optional, generic request binding: { pathParams, query }.
+   *                   Core knows NOTHING about specific business fields — it
+   *                   only performs generic placeholder matching, encodeURIComponent,
+   *                   and query serialization. Adapters own all business validation.
+   *                   Omit / pass {} for fixed-path, no-param capabilities.
    * @returns          The business service response body (parsed JSON or text).
    *
    * @throws AgentNotAllowedError     if agent is not in the allowlist.
    * @throws CapabilityNotRegisteredError  if capabilityId is unknown.
    * @throws AuthServiceError          if token issuance fails.
-   * @throws BrokerError              if origin/method/path validation fails.
+   * @throws RequestBindingError      if pathParams/query binding is invalid (400).
+   * @throws BrokerError              if origin/method/path validation fails or
+   *                                  the business service returns a non-ok status.
    */
   async authorizedFetch(
     ctx: OpenClawPluginToolContext,
     capabilityId: string,
-    businessInput: Record<string, unknown>,
+    binding: RequestBinding = {},
   ): Promise<unknown> {
     const agentId = ctx.agentId;
     if (!agentId) {
@@ -142,13 +259,17 @@ export class BrokerCore {
     // 6. Validate origin/method/path
     this._validateRequest(target.allowedOrigin, capability.method, capability.path);
 
-    // 7. Fetch business service
+    // 7. Build the concrete path (placeholder interpolation + exact-match check)
+    //    Generic transport concern — no business-field knowledge here.
+    const concretePath = buildPath(capability.path, binding.pathParams);
+
+    // 8. Fetch business service
     const response = await this._fetchWithRetry(
       target.allowedOrigin,
       capability.method,
-      capability.path,
+      concretePath,
+      binding.query,
       accessToken,
-      businessInput,
       // On 401, invalidate cache and retry once
       async () => {
         this._tokenCache.invalidate(agentId, agentClient.clientId, target.audience, scope);
@@ -265,27 +386,28 @@ export class BrokerCore {
 
   /**
    * Fetch the target business service with Bearer auth.
+   * `path` is the already-interpolated concrete path (placeholders resolved).
+   * `query` is an optional, generic map; undefined/empty values are omitted.
    * On 401, triggers at most one retry with a fresh token.
    */
   private async _fetchWithRetry(
     origin: string,
     method: string,
     path: string,
+    query: Record<string, string | number | boolean | undefined> | undefined,
     token: string,
-    body: Record<string, unknown>,
     onUnauthorized: () => Promise<string>,
   ): Promise<unknown> {
-    const url = `${origin}${path}`;
+    const queryString = buildQuery(query);
+    const url = queryString
+      ? `${origin}${path}?${queryString}`
+      : `${origin}${path}`;
     const headers: Record<string, string> = {
       'Authorization': `Bearer ${token}`,
     };
 
-    // Attach body for non-GET methods
-    let fetchBody: string | undefined;
-    if (method !== 'GET') {
-      headers['Content-Type'] = 'application/json';
-      fetchBody = JSON.stringify(body);
-    }
+    // This broker is read-only: all inputs travel in the path/query, never a body.
+    const fetchBody: string | undefined = undefined;
 
     let response: Response;
     try {
