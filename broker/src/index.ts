@@ -26,6 +26,7 @@ import { BrokerCore, AgentNotAllowedError } from './broker-core.js';
 import { createWorkflowTasksTool } from './adapters/workflow-tasks.js';
 import { createTestReadTool } from './adapters/test-read.js';
 import { createOkrReadTool } from './adapters/okr-read.js';
+import { createWorkflowSubmissionHistoryTool } from './adapters/workflow-submission-history.js';
 
 // ─── Adapter Registry ─────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ const ADAPTERS: Record<
   'workflow_my_tasks': createWorkflowTasksTool,
   'test_read': createTestReadTool,
   'okr_read': createOkrReadTool,
+  'workflow_submission_history': createWorkflowSubmissionHistoryTool,
 };
 
 // ─── Plugin Registration ──────────────────────────────────────────────────
