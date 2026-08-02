@@ -30,7 +30,7 @@
               "credentialRef": {
                 "source": "file",
                 "provider": "fs",
-                "id": "/Users/yanfenma/.openclaw/credentials/openclaw-auth-canary-agent-secret"
+                "id": "${OPENCLAW_HOME}/credentials/openclaw-auth-canary-agent-secret"
               }
             }
           },

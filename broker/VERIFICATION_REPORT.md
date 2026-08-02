@@ -3,7 +3,7 @@
 ## 仓库与分支
 
 ```
-REPOSITORY=/Users/yanfenma/workspace/project/openclaw-adc-canary-extension
+REPOSITORY=${REPO_ROOT}
 BASE_SHA=dd4a9da (main)
 REMOTE_BRANCH=feat/openclaw-generic-business-auth-broker-v1
 

@@ -20,7 +20,7 @@ MAIN_EXTENSION_TREE_BEFORE=$(find ~/.openclaw/extensions/ -type f | sort | sha25
 
 ```bash
 # Build broker plugin
-cd /Users/yanfenma/workspace/project/openclaw-adc-canary-extension/broker
+cd ${REPO_ROOT}/broker
 npm run build
 
 # Symlink into extensions
